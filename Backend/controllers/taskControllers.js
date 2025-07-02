@@ -1,18 +1,23 @@
+const {z}= require('zod');
 const Task = require('../models/Task');
-const createTask = async (req, res) => {
-    try {
-        const { title, description } = req.body;
-        if (!title) {
-            return res.status(400).json({ message: "Provide the title" })
+const taskSchema = z.object({
+    title: z.string().min(1,"Title is required"),
+    description: z.string().optional()
+})
+const createTask = async (req, res, next)=>{
+    try{
+        const parsed = taskSchema.safeParse(req.body);
+        if(!parsed.success){
+            return res.status(400).json({
+                message: " Validation failed",
+                errors: parsed.error.flatten().fieldErrors,
+            });
         }
-        const newTask= await Task.create({
-            title,
-            description
-        });
+        const newTask = await Task.create(parsed.data)
         res.status(201).json(newTask);
     }
     catch(error){
-        res.status(500).json({message:"Server Error"})
+        next(error)
     }
 }
 
@@ -40,18 +45,17 @@ const updateTaskStatus = async(req,res) =>{
         res.status(500).json({message:"server Error"})
     }
 }
-const deleteTask = async(req,res)=> {
-    try{
-        const deleteTask = await Task.findById(req.params.id)
-        if(!deleteTask){
-            return res.status(404).json({message:" Task not Found"})
-        }
-        await deleteTask.remove()
-        res.status(200).json({message:"Task Deleted Successfully"})
+const deleteTask = async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
     }
-    catch(err){
-        res.status(500).json({message:"Server Error"})
-    }
-}
-module.exports={createTask, getTasks, updateTaskStatus, deleteTask};
+    await task.remove();
+    res.status(200).json({ message: "Task deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Server Error" });
+  }
+};
 
+module.exports={createTask, getTasks, updateTaskStatus, deleteTask};
